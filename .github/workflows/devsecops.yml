@@ -2,9 +2,9 @@ name: DevSecOps Pipeline — CYC386 MVP
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 env:
   IMAGE_NAME: secureapp-mvp
