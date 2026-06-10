@@ -1,0 +1,69 @@
+# Falco Custom Rules — CYC386 MVP
+# Runtime security monitoring — maps to NIST CSF DE.CM-1
+
+# Rule 1: Detect shell spawned in application container
+- rule: Shell Spawned in App Container
+  desc: A shell was spawned inside the secureapp container (possible RCE)
+  condition: >
+    spawned_process and
+    container.name = "secureapp" and
+    proc.name in (bash, sh, zsh, dash, ksh)
+  output: >
+    Shell spawned in secureapp container
+    (user=%user.name container=%container.name
+    shell=%proc.name parent=%proc.pname cmdline=%proc.cmdline)
+  priority: CRITICAL
+  tags: [container, shell, secureapp, mitre_execution]
+
+# Rule 2: Outbound network connection from container (unexpected)
+- rule: Unexpected Outbound Connection
+  desc: Container making outbound network connection to unexpected destination
+  condition: >
+    outbound and
+    container.name = "secureapp" and
+    not fd.sport in (5432, 6379, 53)
+  output: >
+    Unexpected outbound connection from secureapp
+    (user=%user.name container=%container.name
+    dest=%fd.rip:%fd.rport proto=%fd.l4proto)
+  priority: WARNING
+  tags: [network, container, secureapp]
+
+# Rule 3: Sensitive file access
+- rule: Read Sensitive File
+  desc: Attempt to read sensitive files inside container
+  condition: >
+    open_read and
+    container.name = "secureapp" and
+    fd.name in (/etc/shadow, /etc/passwd, /etc/sudoers, /root/.ssh/id_rsa)
+  output: >
+    Sensitive file read in secureapp container
+    (user=%user.name file=%fd.name container=%container.name)
+  priority: HIGH
+  tags: [filesystem, sensitive_data, mitre_credential_access]
+
+# Rule 4: Privilege escalation attempt
+- rule: Privilege Escalation Attempt
+  desc: Process attempting to escalate privileges
+  condition: >
+    container.name = "secureapp" and
+    proc.name in (sudo, su, newgrp) and
+    spawned_process
+  output: >
+    Privilege escalation attempted in secureapp
+    (user=%user.name proc=%proc.name container=%container.name)
+  priority: CRITICAL
+  tags: [privilege_escalation, mitre_privilege_escalation]
+
+# Rule 5: High request rate (potential DDoS indicator)
+- rule: High File Write Rate
+  desc: Unusual high write activity (could indicate exfiltration or log tampering)
+  condition: >
+    container.name = "secureapp" and
+    open_write and
+    not fd.name startswith "/app/logs"
+  output: >
+    Unexpected file write in secureapp
+    (user=%user.name file=%fd.name container=%container.name)
+  priority: WARNING
+  tags: [filesystem, integrity]
